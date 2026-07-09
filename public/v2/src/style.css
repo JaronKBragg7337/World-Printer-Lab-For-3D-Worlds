@@ -1,0 +1,170 @@
+/* Copied from root for v2 baseline. Will be enhanced for PBR and better visuals. */
+
+:root {
+  --accent: #00ff9d;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #0a1516;
+  color: #eafff7;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+#app {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+canvas {
+  display: block;
+}
+
+#hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 320px;
+  background: rgba(27, 41, 36, 0.92);
+  border: 1px solid #33453f;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  z-index: 10;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+#hud.collapsed {
+  width: auto;
+  padding: 8px 12px;
+}
+
+#hud.collapsed .hud-body,
+#hud.collapsed .section-title {
+  display: none;
+}
+
+.topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #eafff7;
+}
+
+button {
+  background: #1b2924;
+  color: #eafff7;
+  border: 1px solid #33453f;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.1s ease;
+}
+
+button:hover {
+  background: #252c2a;
+  border-color: #00ff9d;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  border-color: #59645f;
+}
+
+button.danger {
+  border-color: #9b3f48;
+  color: #ff9d9d;
+}
+
+button.danger:hover {
+  background: #3a2528;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8b9691;
+  margin: 14px 0 6px;
+  border-bottom: 1px solid #33453f;
+  padding-bottom: 3px;
+}
+
+input {
+  flex: 1;
+  background: #0f1c1a;
+  border: 1px solid #33453f;
+  color: #eafff7;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.pill {
+  display: inline-block;
+  background: #252c2a;
+  border: 1px solid #59645f;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  margin-right: 4px;
+}
+
+#status {
+  font-size: 13px;
+  color: #c4d0c9;
+  margin-top: 8px;
+  min-height: 36px;
+}
+
+#selected {
+  font-size: 12px;
+  color: #8b9691;
+  margin-top: 4px;
+}
+
+#help {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  font-size: 11px;
+  color: #59645f;
+  max-width: 240px;
+  text-align: right;
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  #hud {
+    width: calc(100% - 24px);
+    max-height: 45vh;
+  }
+  #hud.mobile-start {
+    max-height: 38px;
+    overflow: hidden;
+  }
+}
