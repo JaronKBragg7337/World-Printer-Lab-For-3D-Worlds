@@ -12,7 +12,7 @@ app.innerHTML = `
       <button id="toggleHud" class="secondary">Hide</button>
     </div>
     <div class="hud-body">
-      <p class="note">Standalone Three.js lab. The printer and every spawned object are real scene objects, not CSS overlays.</p>
+      <p class="note">Visible print lifecycle: command → printer bed fabrication → pick up → move preview → place into the world.</p>
 
       <div class="section-title">Speak / Type Object</div>
       <div class="row">
@@ -24,7 +24,14 @@ app.innerHTML = `
       <div class="section-title">Object Recipes</div>
       <div class="row" id="recipeButtons"></div>
 
-      <div class="section-title">Preview / Selected</div>
+      <div class="section-title">Print / Placement Flow</div>
+      <div class="row">
+        <button id="pickupPrint" disabled>Pick Up Print</button>
+        <button id="placeObject">Place</button>
+        <button class="danger" id="cancelObject">Cancel/Delete</button>
+      </div>
+
+      <div class="section-title">Move / Rotate Preview</div>
       <div class="row">
         <button class="secondary" id="moveLeft">←</button>
         <button class="secondary" id="moveForward">↑</button>
@@ -32,16 +39,14 @@ app.innerHTML = `
         <button class="secondary" id="moveRight">→</button>
         <button class="secondary" id="rotateLeft">Rot −</button>
         <button class="secondary" id="rotateRight">Rot +</button>
-        <button id="placeObject">Place</button>
-        <button class="danger" id="cancelObject">Cancel/Delete</button>
       </div>
 
       <div class="section-title">Design Goal</div>
       <div class="row">
+        <span class="pill">visible fabrication</span>
+        <span class="pill">pickup stage</span>
         <span class="pill">curves</span>
         <span class="pill">arches</span>
-        <span class="pill">ridges</span>
-        <span class="pill">wheels</span>
         <span class="pill">hulls</span>
         <span class="pill">not blockouts</span>
       </div>
@@ -60,6 +65,8 @@ const statusEl = document.querySelector('#status');
 const selectedEl = document.querySelector('#selected');
 const commandInput = document.querySelector('#commandInput');
 const recipeButtons = document.querySelector('#recipeButtons');
+const pickupButton = document.querySelector('#pickupPrint');
+const runCommandButton = document.querySelector('#runCommand');
 
 if (window.innerWidth <= 720) {
   hud.classList.add('collapsed', 'mobile-start');
@@ -74,6 +81,7 @@ toggleHud.addEventListener('click', () => {
 
 function setStatus(text) { statusEl.textContent = text; }
 function setTarget(text) { selectedEl.textContent = `Target: ${text}`; }
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a1516);
@@ -117,8 +125,10 @@ const materials = {
   stone: new THREE.MeshLambertMaterial({ color: 0x7c817b }),
   flame: new THREE.MeshBasicMaterial({ color: 0xff8a20 }),
   glass: new THREE.MeshLambertMaterial({ color: 0x8fd7ff }),
+  player: new THREE.MeshLambertMaterial({ color: 0x60a5ff }),
   ghost: new THREE.MeshBasicMaterial({ color: 0x00ff9d, transparent: true, opacity: 0.32, wireframe: true, depthWrite: false }),
-  selection: new THREE.MeshBasicMaterial({ color: 0xffd479, transparent: true, opacity: 0.85, wireframe: true, depthWrite: false })
+  selection: new THREE.MeshBasicMaterial({ color: 0xffd479, transparent: true, opacity: 0.85, wireframe: true, depthWrite: false }),
+  filament: new THREE.MeshBasicMaterial({ color: 0x00ff9d, transparent: true, opacity: 0.82, depthWrite: false })
 };
 
 function shadow(root) {
@@ -143,7 +153,7 @@ function setGhost(root, ghost = true) {
   root.traverse((child) => {
     if (!child.isMesh) return;
     if (ghost) {
-      child.userData.solidMaterial = child.material;
+      child.userData.solidMaterial = child.userData.solidMaterial || child.material;
       child.material = materials.ghost;
     } else if (child.userData.solidMaterial) {
       child.material = child.userData.solidMaterial;
@@ -151,23 +161,7 @@ function setGhost(root, ghost = true) {
   });
 }
 
-function roundedRectShape(w, h, r) {
-  const x = -w / 2;
-  const y = 0;
-  const s = new THREE.Shape();
-  s.moveTo(x + r, y);
-  s.lineTo(x + w - r, y);
-  s.quadraticCurveTo(x + w, y, x + w, y + r);
-  s.lineTo(x + w, y + h - r);
-  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  s.lineTo(x + r, y + h);
-  s.quadraticCurveTo(x, y + h, x, y + h - r);
-  s.lineTo(x, y + r);
-  s.quadraticCurveTo(x, y, x + r, y);
-  return s;
-}
-
-function archShape(w, h, arch, r = 0.02) {
+function archShape(w, h, arch) {
   const s = new THREE.Shape();
   s.moveTo(-w / 2, 0);
   s.lineTo(-w / 2, h - arch);
@@ -179,7 +173,13 @@ function archShape(w, h, arch, r = 0.02) {
 }
 
 function extrudedShape(shape, depth, mat) {
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: 0.025, bevelThickness: 0.025, bevelSegments: 3 });
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: true,
+    bevelSize: 0.025,
+    bevelThickness: 0.025,
+    bevelSegments: 3
+  });
   geometry.center();
   return new THREE.Mesh(geometry, mat);
 }
@@ -209,7 +209,6 @@ function makeLabelSprite(text) {
   return sprite;
 }
 
-// World
 scene.add(new THREE.AmbientLight(0x728078, 0.62));
 const sun = new THREE.DirectionalLight(0xffffff, 1.16);
 sun.position.set(18, 28, 12);
@@ -238,7 +237,6 @@ waterRing.rotation.x = -Math.PI / 2;
 waterRing.position.y = 0.018;
 scene.add(waterRing);
 
-// Printer station
 function createPrinterStation() {
   const g = new THREE.Group();
   g.name = 'World Printer Station';
@@ -282,7 +280,9 @@ function createPrinterStation() {
   nozzle.rotation.x = Math.PI;
   extruder.add(nozzle);
   const cable = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.35, 0.35, 0), new THREE.Vector3(-1.1, 0.8, -0.4), new THREE.Vector3(-1.75, 0.2, -1.15)
+    new THREE.Vector3(-0.35, 0.35, 0),
+    new THREE.Vector3(-1.1, 0.8, -0.4),
+    new THREE.Vector3(-1.75, 0.2, -1.15)
   ]), 16, 0.035, 8), materials.metal);
   extruder.add(cable);
   g.add(extruder);
@@ -299,6 +299,27 @@ function createPrinterStation() {
 const printer = createPrinterStation();
 printer.position.set(0, 0, -5.5);
 scene.add(printer);
+
+function createPlayerMarker() {
+  const g = new THREE.Group();
+  g.name = 'Player Pickup Anchor';
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.32, 0.75, 6, 12), materials.player);
+  body.position.y = 0.82;
+  g.add(body);
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.025, 8, 36), matClone(materials.accent, 0.55));
+  halo.rotation.x = Math.PI / 2;
+  halo.position.y = 0.08;
+  g.add(halo);
+  const label = makeLabelSprite('PICKUP');
+  label.scale.set(1.8, 0.45, 1);
+  label.position.y = 1.8;
+  g.add(label);
+  return shadow(g);
+}
+
+const playerMarker = createPlayerMarker();
+playerMarker.position.set(0, 0, 5.2);
+scene.add(playerMarker);
 
 function createCottage() {
   const g = new THREE.Group();
@@ -322,7 +343,6 @@ function createCottage() {
 
   const door = extrudedShape(archShape(0.75, 1.25, 0.44), 0.08, materials.darkWood);
   door.position.set(0, 0.64, 1.39);
-  door.rotation.y = 0;
   g.add(door);
 
   for (const x of [-0.92, 0.92]) {
@@ -346,7 +366,10 @@ function createLayeredTree() {
   const g = new THREE.Group();
   g.name = 'Layered Tree';
   const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.12, 0.8, 0.08), new THREE.Vector3(-0.16, 1.7, -0.05), new THREE.Vector3(0.08, 2.45, 0.06)
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.12, 0.8, 0.08),
+    new THREE.Vector3(-0.16, 1.7, -0.05),
+    new THREE.Vector3(0.08, 2.45, 0.06)
   ]);
   const trunk = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.16, 12), materials.wood);
   g.add(trunk);
@@ -405,7 +428,9 @@ function createCart() {
   }
 
   const handle = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-1.35, 0.92, 0), new THREE.Vector3(-2.0, 0.86, 0), new THREE.Vector3(-2.55, 0.6, 0)
+    new THREE.Vector3(-1.35, 0.92, 0),
+    new THREE.Vector3(-2.0, 0.86, 0),
+    new THREE.Vector3(-2.55, 0.6, 0)
   ]), 16, 0.045, 8), materials.metal);
   g.add(handle);
   return shadow(g);
@@ -422,7 +447,11 @@ function createBridge() {
   }
   for (const z of [-1.12, 1.12]) {
     const railCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-1.9, 1.05, z), new THREE.Vector3(-0.8, 1.55, z), new THREE.Vector3(0, 1.75, z), new THREE.Vector3(0.8, 1.55, z), new THREE.Vector3(1.9, 1.05, z)
+      new THREE.Vector3(-1.9, 1.05, z),
+      new THREE.Vector3(-0.8, 1.55, z),
+      new THREE.Vector3(0, 1.75, z),
+      new THREE.Vector3(0.8, 1.55, z),
+      new THREE.Vector3(1.9, 1.05, z)
     ]);
     const rail = new THREE.Mesh(new THREE.TubeGeometry(railCurve, 32, 0.045, 8), materials.darkWood);
     g.add(rail);
@@ -533,13 +562,13 @@ function createCampfire() {
 }
 
 const recipes = [
-  { id: 'cottage', label: 'Cottage', aliases: ['cottage', 'house', 'home', 'hut'], create: createCottage },
-  { id: 'tree', label: 'Tree', aliases: ['tree', 'forest', 'oak'], create: createLayeredTree },
-  { id: 'cart', label: 'Cart', aliases: ['cart', 'wagon', 'carriage'], create: createCart },
-  { id: 'bridge', label: 'Bridge', aliases: ['bridge', 'arch bridge', 'wood bridge'], create: createBridge },
-  { id: 'stall', label: 'Market Stall', aliases: ['market', 'stall', 'shop', 'vendor'], create: createMarketStall },
-  { id: 'boat', label: 'Boat', aliases: ['boat', 'ship', 'sailboat'], create: createBoat },
-  { id: 'campfire', label: 'Campfire', aliases: ['campfire', 'fire', 'firepit'], create: createCampfire }
+  { id: 'cottage', label: 'Cottage', aliases: ['cottage', 'house', 'home', 'hut'], dims: [3.8, 3.2, 3.2], create: createCottage },
+  { id: 'tree', label: 'Tree', aliases: ['tree', 'forest', 'oak'], dims: [2.5, 2.5, 3.4], create: createLayeredTree },
+  { id: 'cart', label: 'Cart', aliases: ['cart', 'wagon', 'carriage'], dims: [3.0, 1.9, 1.8], create: createCart },
+  { id: 'bridge', label: 'Bridge', aliases: ['bridge', 'arch bridge', 'wood bridge'], dims: [4.4, 2.8, 2.0], create: createBridge },
+  { id: 'stall', label: 'Market Stall', aliases: ['market', 'stall', 'shop', 'vendor'], dims: [3.4, 2.2, 3.1], create: createMarketStall },
+  { id: 'boat', label: 'Boat', aliases: ['boat', 'ship', 'sailboat'], dims: [3.7, 1.8, 2.7], create: createBoat },
+  { id: 'campfire', label: 'Campfire', aliases: ['campfire', 'fire', 'firepit'], dims: [1.4, 1.4, 1.2], create: createCampfire }
 ];
 
 for (const recipe of recipes) {
@@ -558,6 +587,9 @@ function parseCommand(text) {
 let preview = null;
 let selected = null;
 let selectionBox = null;
+let activePrint = null;
+let activeLayerGroup = null;
+let isPrinting = false;
 let printIndex = 0;
 const placed = [];
 const spawnSlots = [
@@ -570,6 +602,14 @@ function slotPosition() {
   return new THREE.Vector3(x, 0, z);
 }
 
+function getPrinterBedWorldPosition(yOffset = 0) {
+  return printer.localToWorld(new THREE.Vector3(0, 0.43 + yOffset, 0.4));
+}
+
+function getPlayerHandWorldPosition() {
+  return playerMarker.localToWorld(new THREE.Vector3(0, 1.55, 0));
+}
+
 function clearSelection() {
   if (selectionBox) {
     scene.remove(selectionBox);
@@ -578,7 +618,7 @@ function clearSelection() {
     selectionBox = null;
   }
   selected = null;
-  setTarget(preview ? `preview ${preview.userData.label}` : 'none');
+  setTarget(preview ? `preview ${preview.userData.label}` : activePrint ? `${activePrint.userData.label} on printer bed` : 'none');
 }
 
 function selectObject(obj) {
@@ -610,7 +650,7 @@ function targetObject() {
 
 function moveTarget(dx, dz) {
   const obj = targetObject();
-  if (!obj) { setStatus('No preview or selected object. Print something first.'); return; }
+  if (!obj) { setStatus('No placement preview or selected object. Print and pick something up first.'); return; }
   obj.position.x = Math.round(obj.position.x + dx);
   obj.position.z = Math.round(obj.position.z + dz);
   updateSelectionBox();
@@ -618,66 +658,221 @@ function moveTarget(dx, dz) {
 
 function rotateTarget(dir) {
   const obj = targetObject();
-  if (!obj) { setStatus('No preview or selected object. Print something first.'); return; }
+  if (!obj) { setStatus('No placement preview or selected object. Print and pick something up first.'); return; }
   obj.rotation.y += dir * Math.PI / 8;
   updateSelectionBox();
 }
 
-function animateExtruder(toWorld, duration = 480) {
-  const extruder = printer.userData.extruder;
-  const local = printer.worldToLocal(toWorld.clone());
-  local.y = 1.8;
-  local.z = THREE.MathUtils.clamp(local.z, -1.5, 1.5);
-  local.x = THREE.MathUtils.clamp(local.x, -1.8, 1.8);
-  const start = extruder.position.clone();
-  const end = new THREE.Vector3(local.x, 1.8, local.z);
+function createLayerContour(width, depth, y) {
+  const w = width / 2;
+  const d = depth / 2;
+  const points = [
+    new THREE.Vector3(-w, y, -d), new THREE.Vector3(w, y, -d),
+    new THREE.Vector3(w, y, d), new THREE.Vector3(-w, y, d),
+    new THREE.Vector3(-w, y, -d)
+  ];
+  const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.02);
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.018, 6), materials.filament);
+  tube.userData.printLayer = true;
+  return tube;
+}
+
+function createPrintSpark() {
+  const spark = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), materials.filament);
+  spark.userData.spark = true;
+  return spark;
+}
+
+function animateObjectTransform(object, targetPosition, targetScale, duration = 650) {
+  const startPosition = object.position.clone();
+  const startScale = object.scale.clone();
+  const endScale = new THREE.Vector3(targetScale, targetScale, targetScale);
   const t0 = performance.now();
   return new Promise(resolve => {
     function step(now) {
       const raw = Math.min(1, (now - t0) / duration);
-      const eased = 1 - Math.pow(1 - raw, 3);
-      extruder.position.lerpVectors(start, end, eased);
+      const eased = raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2;
+      object.position.lerpVectors(startPosition, targetPosition, eased);
+      object.scale.lerpVectors(startScale, endScale, eased);
       if (raw < 1) requestAnimationFrame(step); else resolve();
     }
     requestAnimationFrame(step);
   });
 }
 
+async function runPrinterFabrication(object, recipe) {
+  const extruder = printer.userData.extruder;
+  const startExtruderPosition = extruder.position.clone();
+  const layerGroup = new THREE.Group();
+  layerGroup.name = `${recipe.label} print layers`;
+  layerGroup.position.copy(object.position);
+  scene.add(layerGroup);
+  activeLayerGroup = layerGroup;
+
+  const [width, depth, height] = recipe.dims;
+  const printDuration = 3600;
+  const t0 = performance.now();
+  let nextLayer = 0;
+  let lastSpark = 0;
+
+  setStatus(`Printing ${recipe.label}: nozzle drawing visible layers on the bed.`);
+
+  return new Promise(resolve => {
+    function step(now) {
+      const raw = Math.min(1, (now - t0) / printDuration);
+      const eased = 1 - Math.pow(1 - raw, 2.35);
+
+      object.scale.setScalar(0.035 + 0.965 * eased);
+      object.position.copy(getPrinterBedWorldPosition(0.01));
+
+      const sweep = now * 0.006;
+      extruder.position.x = Math.sin(sweep) * 1.65;
+      extruder.position.z = 0.4 + Math.cos(sweep * 1.37) * 1.28;
+      extruder.position.y = 1.12 + eased * 1.05;
+
+      if (raw >= nextLayer) {
+        const layer = createLayerContour(width * 0.78, depth * 0.78, 0.03 + height * raw * 0.92);
+        layerGroup.add(layer);
+        nextLayer += 1 / 18;
+      }
+
+      if (now - lastSpark > 90) {
+        const spark = createPrintSpark();
+        const sparkWorld = printer.localToWorld(new THREE.Vector3(extruder.position.x, 0.45 + height * raw * 0.62, extruder.position.z));
+        spark.position.copy(sparkWorld);
+        scene.add(spark);
+        setTimeout(() => scene.remove(spark), 360);
+        lastSpark = now;
+      }
+
+      if (raw < 1) {
+        requestAnimationFrame(step);
+      } else {
+        extruder.position.copy(startExtruderPosition);
+        resolve();
+      }
+    }
+    requestAnimationFrame(step);
+  });
+}
+
 async function beginPrint(recipe) {
-  if (preview) scene.remove(preview);
+  if (isPrinting) {
+    setStatus('Printer is already fabricating. Wait for the current print to finish.');
+    return;
+  }
+  if (activePrint) {
+    setStatus('A finished print is still on the bed. Pick it up or cancel it first.');
+    return;
+  }
+
+  if (preview) {
+    scene.remove(preview);
+    preview = null;
+  }
   clearSelection();
+
+  isPrinting = true;
+  pickupButton.disabled = true;
+  runCommandButton.disabled = true;
+  document.querySelectorAll('#recipeButtons button').forEach(button => { button.disabled = true; });
+
   const obj = recipe.create();
   obj.userData.label = recipe.label;
   obj.userData.recipeId = recipe.id;
-  obj.position.copy(slotPosition());
+  obj.userData.state = 'printing';
+  obj.position.copy(getPrinterBedWorldPosition(0.01));
   obj.rotation.y = 0;
+  obj.scale.setScalar(0.035);
+  activePrint = obj;
+  scene.add(activePrint);
+  setTarget(`${recipe.label} printing on bed`);
+
+  try {
+    await runPrinterFabrication(activePrint, recipe);
+    activePrint.userData.state = 'printed-on-bed';
+    setStatus(`${recipe.label} finished printing. Tap “Pick Up Print” to carry it into placement mode.`);
+    setTarget(`${recipe.label} finished on printer bed`);
+    pickupButton.disabled = false;
+  } catch (error) {
+    console.error(error);
+    setStatus(`Print failed: ${error.message || error}.`);
+  } finally {
+    isPrinting = false;
+    runCommandButton.disabled = false;
+    document.querySelectorAll('#recipeButtons button').forEach(button => { button.disabled = false; });
+  }
+}
+
+async function pickupPrintedObject() {
+  if (!activePrint) {
+    setStatus('No finished print on the bed yet. Print something first.');
+    return;
+  }
+  if (isPrinting) {
+    setStatus('Wait until fabrication finishes before picking it up.');
+    return;
+  }
+
+  const obj = activePrint;
+  activePrint = null;
+  pickupButton.disabled = true;
+  if (activeLayerGroup) {
+    scene.remove(activeLayerGroup);
+    activeLayerGroup = null;
+  }
+
+  obj.userData.state = 'carried';
+  setStatus(`Picking up ${obj.userData.label}: moving it from printer bed to player carry point.`);
+  await animateObjectTransform(obj, getPlayerHandWorldPosition(), 0.42, 680);
+  await sleep(160);
+
+  obj.userData.state = 'placement-preview';
+  obj.position.copy(slotPosition());
+  obj.scale.setScalar(1);
   setGhost(obj, true);
   preview = obj;
-  scene.add(preview);
-  setTarget(`preview ${recipe.label}`);
-  setStatus(`Previewing ${recipe.label}. Move it, tap ground to reposition, then Place.`);
-  await animateExtruder(new THREE.Vector3(0, 0, -5.5));
+  clearSelection();
+  setTarget(`preview ${obj.userData.label}`);
+  setStatus(`${obj.userData.label} picked up. Move/rotate it, tap ground to reposition, then Place.`);
 }
 
 function placePreview() {
   if (!preview) {
-    setStatus('No preview to place. Type or speak an object first.');
+    setStatus('No placement preview. Print something, then pick it up first.');
     return;
   }
   setGhost(preview, false);
   preview.userData.id = placed.length + 1;
+  preview.userData.state = 'placed';
   placed.push(preview);
   selectObject(preview);
-  setStatus(`Placed ${preview.userData.label}. This object is now a real Three.js group in the scene.`);
+  setStatus(`Placed ${preview.userData.label}. It is now a solid world object.`);
   preview = null;
 }
 
 function cancelOrDelete() {
+  if (isPrinting) {
+    setStatus('Cannot cancel while the current layer animation is running yet. Let this print finish, then delete/pick up.');
+    return;
+  }
   if (preview) {
     scene.remove(preview);
     preview = null;
-    setStatus('Preview cancelled.');
+    setStatus('Placement preview cancelled.');
     setTarget(selected ? `${selected.userData.label} #${selected.userData.id}` : 'none');
+    return;
+  }
+  if (activePrint) {
+    scene.remove(activePrint);
+    activePrint = null;
+    if (activeLayerGroup) {
+      scene.remove(activeLayerGroup);
+      activeLayerGroup = null;
+    }
+    pickupButton.disabled = true;
+    setStatus('Finished print removed from printer bed.');
+    setTarget('none');
     return;
   }
   if (selected) {
@@ -692,7 +887,7 @@ function cancelOrDelete() {
   setStatus('Nothing to cancel or delete.');
 }
 
-document.querySelector('#runCommand').addEventListener('click', () => {
+runCommandButton.addEventListener('click', () => {
   const recipe = parseCommand(commandInput.value);
   if (!recipe) {
     setStatus('No recipe matched. Try cottage, tree, cart, bridge, market stall, boat, or campfire.');
@@ -701,6 +896,7 @@ document.querySelector('#runCommand').addEventListener('click', () => {
   beginPrint(recipe);
 });
 
+document.querySelector('#pickupPrint').addEventListener('click', pickupPrintedObject);
 document.querySelector('#placeObject').addEventListener('click', placePreview);
 document.querySelector('#cancelObject').addEventListener('click', cancelOrDelete);
 document.querySelector('#moveLeft').addEventListener('click', () => moveTarget(-1, 0));
@@ -711,10 +907,9 @@ document.querySelector('#rotateLeft').addEventListener('click', () => rotateTarg
 document.querySelector('#rotateRight').addEventListener('click', () => rotateTarget(1));
 
 commandInput.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') document.querySelector('#runCommand').click();
+  if (event.key === 'Enter') runCommandButton.click();
 });
 
-// Ground reposition + object selection
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerDown = null;
@@ -750,6 +945,7 @@ renderer.domElement.addEventListener('click', (event) => {
 });
 
 window.addEventListener('keydown', (event) => {
+  if (document.activeElement === commandInput && event.key !== 'Enter') return;
   const k = event.key.toLowerCase();
   if (k === 'w' || event.key === 'ArrowUp') moveTarget(0, -1);
   if (k === 's' || event.key === 'ArrowDown') moveTarget(0, 1);
@@ -761,7 +957,6 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'Delete' || event.key === 'Backspace') cancelOrDelete();
 });
 
-// Voice: browser-native, no API key, no server. Works only where SpeechRecognition is supported.
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceButton = document.querySelector('#voiceButton');
 if (!SpeechRecognition) {
@@ -786,12 +981,12 @@ if (!SpeechRecognition) {
   recognition.onerror = (event) => setStatus(`Voice error: ${event.error}. Type the command instead.`);
 }
 
-// Starter examples in-world
 const starterA = createCottage();
 starterA.position.set(-6, 0, -1.5);
 starterA.scale.setScalar(0.78);
 starterA.userData.label = 'Starter Cottage';
 starterA.userData.id = 1;
+starterA.userData.state = 'placed';
 placed.push(starterA);
 scene.add(starterA);
 
@@ -799,6 +994,7 @@ const starterB = createLayeredTree();
 starterB.position.set(-8.5, 0, 1.8);
 starterB.userData.label = 'Starter Tree';
 starterB.userData.id = 2;
+starterB.userData.state = 'placed';
 placed.push(starterB);
 scene.add(starterB);
 
@@ -807,6 +1003,7 @@ starterC.position.set(6.4, 0.04, -0.5);
 starterC.rotation.y = -0.45;
 starterC.userData.label = 'Starter Boat';
 starterC.userData.id = 3;
+starterC.userData.state = 'placed';
 placed.push(starterC);
 scene.add(starterC);
 
@@ -821,13 +1018,16 @@ window.addEventListener('resize', resize);
 function animate(now) {
   requestAnimationFrame(animate);
   const extruder = printer.userData.extruder;
-  if (!preview) {
+  if (!preview && !activePrint && !isPrinting) {
     extruder.position.x = Math.sin(now * 0.0011) * 0.45;
+    extruder.position.y = 5.15;
+    extruder.position.z = Math.cos(now * 0.0009) * 0.18;
   }
+  playerMarker.rotation.y = Math.sin(now * 0.001) * 0.08;
   if (selectionBox) updateSelectionBox();
   controls.update();
   renderer.render(scene, camera);
 }
 
-setStatus('Ready. Choose Vite on Vercel. This lab is clean, standalone, and MIT licensed.');
+setStatus('Ready. Print something and watch it fabricate on the bed before pickup.');
 animate(performance.now());
