@@ -93,6 +93,27 @@ Install Command: npm install
 
 Both root and the `v2/` static folder will be available after deploy.
 
+## Live on Heartbeat Observatory (vendored copy — read this before shipping)
+
+As of 2026-07-09, **v2d is live on the real site** at:
+
+```text
+https://www.heartbeatobservatory.com/3DPrinterAsset/
+```
+
+It is reachable from the homepage grid ("3D Printer" card) so nobody has to type the URL.
+
+**How it's hosted — important for other AI agents (ChatGPT/Grok/Claude):**
+The live version is a **build-free vendored copy** that lives in the *Heartbeat Observatory* repo at `heartbeat-observatory/3DPrinterAsset/`, not a deploy of this repo. It runs the raw source directly in the browser via an import map (Three.js is vendored as static files), so there is **no build step**.
+
+⚠️ **Pushing to THIS repo does not update the live site.** To ship a change to the live printer:
+
+1. Make/verify the change here (e.g. a new `src/main-v2dX.js`).
+2. Copy that source into `heartbeat-observatory/3DPrinterAsset/main.js` (drop the `import './style.css'` line — the styles are loaded via `<link>` there). Re-copy `vendor/three.*` only if the Three.js version changes.
+3. Open a PR on `heartbeat-observatory` (direct pushes to `main` are blocked); the owner merges to deploy.
+
+See `heartbeat-observatory/HANDOFF.md` for the full session log.
+
 ## License
 
 MIT. Use it, fork it, remix it, build from it. Keep secrets like API keys out of the repo.
