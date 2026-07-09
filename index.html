@@ -3,11 +3,75 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <meta name="description" content="A standalone Three.js world-printer lab for testing speech/text object creation in stylized 3D browser worlds." />
+    <meta name="description" content="World Printer Lab — stable v1 and experimental v2 side by side. Toggle between versions safely." />
     <title>World Printer Lab</title>
+    <style>
+      .mode-indicator {
+        position: fixed;
+        top: 8px;
+        right: 12px;
+        z-index: 999;
+        background: rgba(27,41,36,0.9);
+        border: 1px solid #33453f;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .mode-badge {
+        background: #00ff9d;
+        color: #0a1516;
+        padding: 1px 7px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 11px;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main-v3.js"></script>
+    <script>
+      // Simple mode switcher — respects localStorage and ?mode=v2
+      const params = new URLSearchParams(location.search);
+      const savedMode = localStorage.getItem('printerLabMode');
+      const mode = params.get('mode') || savedMode || 'v1';
+
+      if (mode === 'v2') {
+        localStorage.setItem('printerLabMode', 'v2');
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = '/src/main-v2.js';
+        document.body.appendChild(script);
+
+        // Add floating mode indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'mode-indicator';
+        indicator.innerHTML = `
+          <span style="color:#00ff9d">v2</span>
+          <span style="opacity:0.7">experimental</span>
+          <button onclick="localStorage.setItem('printerLabMode','v1'); location.reload()" 
+                  style="background:none;border:none;color:#eafff7;font-size:11px;cursor:pointer;margin-left:4px">→ v1</button>
+        `;
+        document.body.appendChild(indicator);
+      } else {
+        localStorage.setItem('printerLabMode', 'v1');
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = '/src/main-v3.js';
+        document.body.appendChild(script);
+
+        const indicator = document.createElement('div');
+        indicator.className = 'mode-indicator';
+        indicator.innerHTML = `
+          <span>v1</span>
+          <span style="opacity:0.7">stable</span>
+          <button onclick="localStorage.setItem('printerLabMode','v2'); location.reload()" 
+                  style="background:none;border:none;color:#00ff9d;font-size:11px;cursor:pointer;margin-left:4px">→ try v2</button>
+        `;
+        document.body.appendChild(indicator);
+      }
+    </script>
   </body>
 </html>
