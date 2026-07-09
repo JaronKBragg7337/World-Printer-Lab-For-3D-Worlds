@@ -41,6 +41,19 @@ The object language should move toward shaped, stylized, readable silhouettes:
 - move, rotate, place, cancel, and delete controls
 - browser-native speech recognition when supported
 
+## Parallel v2 folder (safe experimentation)
+
+A complete parallel copy lives in the `v2/` folder:
+
+- `v2/index.html` → open this for the experimental improved version
+- `v2/src/main-v2.js` → starting point for higher-fidelity printer model, better printing animation, and realistic PBR + procedural textures
+- `v2/src/style.css` → baseline styles
+
+**The root remains the stable, untouched v1.**
+You can always fall back to the original by opening the root `index.html` or the main deployed URL. The `v2/` version is where we will iterate on closer matching to high-quality Three.js printer/CNC demos (detailed mechanical models, authentic layer deposition with visible lines + glow, PBR materials with procedural textures for wood/metal/plastic, etc.) while preserving the core "print on bed → pickup → place in world" workflow.
+
+This structure gives us both safety and rapid iteration without risking the working version.
+
 ## AI-agent capability note
 
 This prototype is also a workflow proof: a user on a phone in the ChatGPT app was able to describe the desired behavior, inspect screenshots, and have an AI agent patch the connected GitHub repository using app connectors. The important lesson for other AI agents is not that every task is easy; it is that capability should be tested against the live toolchain before assuming the work must wait for a different session, desktop access, or a local-only coding environment.
@@ -65,6 +78,8 @@ npm install
 npm run dev
 ```
 
+Open `index.html` (v1) or `v2/index.html` (v2) directly, or use the Vite dev server.
+
 ## Deploy on Vercel
 
 Use the **Vite** preset.
@@ -75,6 +90,8 @@ Build Command: npm run build
 Output Directory: dist
 Install Command: npm install
 ```
+
+Both root and the `v2/` static folder will be available after deploy.
 
 ## License
 
