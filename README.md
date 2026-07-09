@@ -114,6 +114,16 @@ The live version is a **build-free vendored copy** that lives in the *Heartbeat 
 
 See `heartbeat-observatory/HANDOFF.md` for the full session log.
 
+## Roadmap notes (2026-07-09)
+
+Requested next, in priority order:
+- **Printer sizes:** a large printer (~5× this one, extended range) for giant buildings that still slices into *small* pieces; a small printer for tiny props; pick size + object in the same menu. Medium = current.
+- **Auto-hide menu on build** ✅ (done — menu collapses when a print starts).
+- **Clean finished piece** ✅ (done — nozzle-path trail cleared when the print finishes).
+- **Small printer: individual pieces + edge-snapping** so players print single pieces and snap them together to make new objects.
+- **Camera/menu options** for the player (angles, controls) to support the piece/snapping workflow.
+- Slice remaining objects (market stall, cart, tree); `pyramidRoof()` is the blocky "castle-type" roof style.
+
 ## License
 
 MIT. Use it, fork it, remix it, build from it. Keep secrets like API keys out of the repo.
