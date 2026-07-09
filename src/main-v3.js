@@ -15,6 +15,12 @@ app.innerHTML = `
     <div class="hud-body">
       <p class="note"><b>${BUILD}</b> — objects cannot become placement previews until the printer visibly finishes them on the bed.</p>
 
+      <div style="margin-bottom:8px;">
+        <button id="openV2" style="width:100%; background:#1b2924; border-color:#00ff9d; color:#00ff9d;">
+          Try v2 (higher detail printer + realistic textures) →
+        </button>
+      </div>
+
       <div class="section-title">Speak / Type Object</div>
       <div class="row">
         <input id="commandInput" value="make a cottage" aria-label="Object command" />
@@ -70,6 +76,7 @@ const pickupButton = document.querySelector('#pickupPrint');
 const placeButton = document.querySelector('#placeObject');
 const cancelButton = document.querySelector('#cancelObject');
 const voiceButton = document.querySelector('#voiceButton');
+const openV2Button = document.querySelector('#openV2');
 
 if (window.innerWidth <= 720) {
   hud.classList.add('collapsed', 'mobile-start');
@@ -80,6 +87,11 @@ toggleHud.addEventListener('click', () => {
   hud.classList.toggle('collapsed');
   hud.classList.remove('mobile-start');
   toggleHud.textContent = hud.classList.contains('collapsed') ? 'Open' : 'Hide';
+});
+
+// Open v2 experimental version in new tab
+openV2Button.addEventListener('click', () => {
+  window.open('/v2/', '_blank');
 });
 
 function setStatus(text) { statusEl.textContent = text; }
