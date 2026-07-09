@@ -11,7 +11,10 @@ Prove this loop:
 ```text
 text or voice command
 → approved object recipe
-→ ghost preview
+→ visible printer-bed fabrication
+→ finished object waits on the print bed
+→ player picks it up
+→ ghost placement preview
 → player places it
 → shaped object appears in the same Three.js world
 ```
@@ -26,6 +29,17 @@ The object language should move toward shaped, stylized, readable silhouettes:
 - market stalls with canopy shape
 - boats with hull forms
 - a printer station with rails, nozzle, bed, cable, and moving parts
+
+## Current prototype features
+
+- real Three.js scene, not CSS 3D
+- mobile-friendly collapsed UI
+- printer nozzle animation
+- visible layer-contour fabrication on the printer bed
+- finished print pickup stage
+- placement preview after pickup
+- move, rotate, place, cancel, and delete controls
+- browser-native speech recognition when supported
 
 ## Run locally
 
