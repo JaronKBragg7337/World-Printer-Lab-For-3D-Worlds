@@ -114,6 +114,10 @@ The live version is a **build-free vendored copy** that lives in the *Heartbeat 
 
 See `heartbeat-observatory/HANDOFF.md` for the full session log.
 
+## Building pieces + snapping (2026-07-09)
+
+Individual printable **building pieces** — Block, Wall, Floor, Pillar — built from small bricks via `brickPanel()` and size-parametrised (bigger = more small bricks). Print one, pick it up, move on the integer grid (arrows) and **Up/Down** to stack (Y snaps to 0.5), then Place. Pieces persist + sync like any placement, so players assemble structures piece by piece — the general alternative to a giant printer rig. Snapping is currently grid-based (flush tiling + vertical stacking); true edge-magnet snapping is a later refinement.
+
 ## World state + multiplayer (2026-07-09)
 
 Placed objects are the world's source of truth in Supabase (`placements` table), not the repo. The printer lab (`src/main-v2e.js`) does place=INSERT, move/rotate=UPDATE, delete=DELETE, load=SELECT+rebuild, and subscribes to Supabase **Realtime** so every builder's placements/moves/deletes appear live for all connected players (multiplayer). Client-generated row ids avoid duplicate echoes. Any AI can SELECT to map the world or DELETE to clean it up. Independent of the engine's netcode — when the printer is later embedded in `/engine`, the table can coexist or the engine can read from it.
