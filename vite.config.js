@@ -7,7 +7,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         v2: resolve(__dirname, 'v2/index.html'),
-        sylWalkableShip: resolve(__dirname, 'experiments/syl-walkable-ship/index.html')
+        sylWalkableShip: resolve(__dirname, 'experiments/syl-walkable-ship/index.html'),
+        sylModularShipV2: resolve(__dirname, 'experiments/syl-modular-ship-v2/index.html')
       }
     }
   }
