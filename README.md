@@ -1,6 +1,6 @@
 # World Printer Lab For 3D Worlds
 
-Standalone Three.js laboratory for visibly fabricating shaped world objects, picking them up, and placing them into a persistent multiplayer world.
+Standalone Three.js laboratory for visibly fabricating shaped world objects, including a grounded layer-contour hero print, then picking them up and placing them into a persistent multiplayer world.
 
 This repository remains separate from Fable Survival and SYL so printer mechanics and object form can be proven before they are integrated into larger games.
 
@@ -21,6 +21,8 @@ Use the root route for development and testing.
 
 - real Three.js scene, not CSS 3D
 - visible printer-bed fabrication
+- exact nozzle-tip deposition on a coherent Cartesian carriage
+- grounded horizontal-contour Hero Layered Form with hot-to-cool material progression
 - granular piece-by-piece slicer
 - curved tiled cottage roof
 - printable Block, Wall, Floor, and Pillar pieces
@@ -113,10 +115,10 @@ Pushing only to this repository does **not** update the public Heartbeat route. 
 
 Current priority order:
 
-1. true edge-magnet snapping with overlap prevention and manual-grid fallback;
-2. port or deliberately reject useful legacy object details;
-3. slice the market stall, cart, and tree to cottage-level granularity;
-4. improve visible layer lines and hot-extrusion glow;
+1. promote additional recipes from bounding-box paths to explicit contour/toolpath printing;
+2. add belts, pulleys, and a carriage-following filament guide to the v2g machine;
+3. profile the hero's active partial-layer geometry updates on older iPhones;
+4. build a general mesh-to-contour proof;
 5. integrate the proven printer system into Fable and SYL.
 
 ## Run locally
