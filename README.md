@@ -23,6 +23,9 @@ Use the root route for development and testing.
 - visible printer-bed fabrication
 - exact nozzle-tip deposition on a coherent Cartesian carriage
 - grounded horizontal-contour Hero Layered Form with hot-to-cool material progression
+- geometry-following tube, helix, latitude, and perimeter paths for world recipes
+- dry lift/cross/descent travel moves between disconnected pieces
+- driven X/depth belts, moving pulleys/collars, and a carriage-following filament guide
 - granular piece-by-piece slicer
 - curved tiled cottage roof
 - printable Block, Wall, Floor, and Pillar pieces
@@ -115,10 +118,10 @@ Pushing only to this repository does **not** update the public Heartbeat route. 
 
 Current priority order:
 
-1. promote additional recipes from bounding-box paths to explicit contour/toolpath printing;
-2. add belts, pulleys, and a carriage-following filament guide to the v2g machine;
-3. profile the hero's active partial-layer geometry updates on older iPhones;
-4. build a general mesh-to-contour proof;
+1. promote Creature body/eyes and complex roofs to native contour stacks;
+2. profile active geometry and guide transforms on older iPhones;
+3. build a general mesh-to-contour proof;
+4. add collision-aware travel planning for tall multi-section prints;
 5. integrate the proven printer system into Fable and SYL.
 
 ## Run locally
