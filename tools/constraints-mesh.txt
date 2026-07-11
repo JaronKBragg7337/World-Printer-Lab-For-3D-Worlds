@@ -1,0 +1,7 @@
+# End-to-end validated together on 2026-07-11. Refresh intentionally.
+lxml==6.1.1
+networkx==3.6.1
+numpy==2.5.1
+scipy==1.18.0
+shapely==2.1.2
+trimesh==4.12.2

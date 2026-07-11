@@ -10,8 +10,13 @@ Use this build for new development. It contains the broadest working system:
 
 - granular piece-by-piece printing
 - curved tiled cottage roof and reusable slicer helpers
-- Block, Wall, Floor, and Pillar recipes
-- small, medium, and large print sizes
+- 26 modular part families across structures, roads, vehicles, energy, and flight
+- a versioned PartSpec metadata/connector contract
+- Compact, Workshop, and Industrial printer geometry/build envelopes
+- separate Mini, Standard, and Mega part-scale standards
+- collision-aware dry travel and measured finished-part parking
+- older whole objects isolated in the Blueprint compatibility category
+- Trimesh mesh-admission and layer-contour export tooling
 - grid placement and vertical stacking
 - Supabase world-state persistence
 - Supabase Realtime multiplayer updates
@@ -64,3 +69,4 @@ Retained as the original parallel higher-detail experiment folder. It is histori
 2. Before deleting or replacing a legacy file, compare its recipes and mechanical details against the current build.
 3. Port useful details first; archive only after the comparison is recorded.
 4. Keep `heartbeat-observatory/3DPrinterAsset/` synchronized when shipping to the public site.
+5. Treat parts as recipes and finished houses/vehicles as blueprints. Do not expand the whole-object category as the primary product path.

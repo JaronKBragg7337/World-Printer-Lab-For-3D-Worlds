@@ -1,6 +1,6 @@
 # World Printer Lab For 3D Worlds
 
-Standalone Three.js laboratory for visibly fabricating shaped world objects, including a grounded layer-contour hero print, then picking them up and placing them into a persistent multiplayer world.
+Standalone Three.js laboratory for visibly fabricating interoperable world-building parts, then picking them up, snapping them together, and placing them into a persistent multiplayer world.
 
 This repository remains separate from Fable Survival and SYL so printer mechanics and object form can be proven before they are integrated into larger games.
 
@@ -27,9 +27,15 @@ Use the root route for development and testing.
 - dry lift/cross/descent travel moves between disconnected pieces
 - driven X/depth belts, moving pulleys/collars, and a carriage-following filament guide
 - granular piece-by-piece slicer
-- curved tiled cottage roof
-- printable Block, Wall, Floor, and Pillar pieces
-- Small, Medium, and Large print sizes
+- a versioned 26-family modular catalog for structures, roads, vehicles, energy, and flight
+- connector-aware snapping with legacy bounding-box fallback
+- Compact, Workshop, and Industrial printers with real regenerated hardware/build envelopes
+- independent Mini, Standard, and Mega part scales so bigger hardware does not silently resize modules
+- exact preflight fit checks with no silent down-scaling
+- deposited-height-aware dry travel and collision-safe finished-part parking
+- removable temporary support geometry for wheel/tire, axle, tank, and thruster jobs
+- curated Blueprint compatibility category for older whole-object demonstrations
+- a Trimesh mesh-admission and contour-export tool for CC0/community assets
 - pickup, preview, move, rotate, stack, place, cancel, and delete
 - Supabase world-state persistence
 - Supabase Realtime multiplayer place/move/delete synchronization
@@ -41,13 +47,14 @@ The current build proves this loop:
 
 ```text
 text or voice command
-→ approved object recipe
+→ approved part recipe
 → visible printer-bed fabrication
-→ finished object waits on the bed
+→ finished part waits on the bed while the toolhead parks clear
 → player picks it up
 → ghost placement preview
+→ connector or edge snap
 → player places or stacks it
-→ object persists in the shared world
+→ part persists in the shared world
 ```
 
 ## Runtime safety layer
@@ -118,11 +125,20 @@ Pushing only to this repository does **not** update the public Heartbeat route. 
 
 Current priority order:
 
-1. promote Creature body/eyes and complex roofs to native contour stacks;
-2. profile active geometry and guide transforms on older iPhones;
-3. build a general mesh-to-contour proof;
-4. add collision-aware travel planning for tall multi-section prints;
-5. integrate the proven printer system into Fable and SYL.
+1. adopt Manifold as the worker-isolated printable-solid and contour kernel;
+2. load `world-printer-layer-paths@1` output from the Trimesh admission tool;
+3. add parameter editing and validated connector families;
+4. add road corner/T modules, wall windows, doors, and multi-axis part rotation;
+5. migrate persistence to catalog parameters and assembly IDs;
+6. turn Cottage, car, aircraft, and spacecraft blueprints into queued part jobs;
+7. integrate the proven printer system into Fable and SYL.
+
+Research and architecture:
+
+- [`docs/OPEN_SOURCE_PARTS_RESEARCH_2026-07-11.md`](./docs/OPEN_SOURCE_PARTS_RESEARCH_2026-07-11.md)
+- [`docs/PART_CATALOG_SCHEMA_V1.md`](./docs/PART_CATALOG_SCHEMA_V1.md)
+- [`docs/HANDOFF_2026-07-11_V2I_MODULAR_PARTS.md`](./docs/HANDOFF_2026-07-11_V2I_MODULAR_PARTS.md)
+- [`tools/README.md`](./tools/README.md)
 
 ## Run locally
 
