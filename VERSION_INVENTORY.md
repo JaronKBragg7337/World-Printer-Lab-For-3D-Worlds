@@ -23,12 +23,16 @@ Use this build for new development. It contains the broadest working system:
 - Orbit, third-person, and first-person views
 - mobile joystick and desktop walking
 
-`src/runtime-guards.js` is loaded before `main-v2e.js` to prevent two known runtime faults without rewriting the large proven source file:
+`src/runtime-guards.js` has been removed — that cleanup is done. Both faults it
+guarded against are fixed at the source:
 
-1. optimistic “saved/deleted” messages are changed to pending status until the Supabase request succeeds;
-2. `scale` is omitted only from Realtime UPDATE callback payloads because saved objects are already rebuilt with size baked into their geometry.
+1. optimistic “saved/deleted” messages are gone; `src/persistence.js` returns
+   `{ ok, error }` and the callers in `main-v2e.js` report the real outcome;
+2. the Realtime UPDATE handler never reads `row.scale`, because saved objects
+   are already rebuilt with size baked into their geometry.
 
-These guards are deliberately narrow. A later cleanup may fold the same logic directly into `main-v2e.js`, after which the guards can be removed.
+Nothing now runs before `main-v2e.js`, and `globalThis.fetch` is no longer
+patched.
 
 ## Preserved legacy implementations
 

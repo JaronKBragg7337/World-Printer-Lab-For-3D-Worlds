@@ -11,8 +11,8 @@ The repository root now opens the most advanced working build:
 ```text
 index.html
 → src/main-current.js
-→ src/runtime-guards.js
 → src/main-v2e.js
+   └─ src/persistence.js   (Supabase world state + realtime)
 ```
 
 Use the root route for development and testing.
@@ -57,14 +57,40 @@ text or voice command
 → part persists in the shared world
 ```
 
-## Runtime safety layer
+## Persistence layer
 
-`src/runtime-guards.js` loads before `src/main-v2e.js` and narrowly addresses two verified faults without replacing the large proven printer implementation:
+`src/runtime-guards.js` has been **removed**. It was a compatibility layer that
+corrected two faults from the outside — monkey-patching `globalThis.fetch` and
+the Supabase channel prototype, and rewriting the status text with a
+`MutationObserver`. Both faults are now fixed at the source, so none of that
+machinery is needed.
 
-1. **Persistence truth:** optimistic “saved” and “deleted” messages are changed to a pending state until the Supabase request actually succeeds. A failed request is shown as local-only instead of being silently reported as saved.
-2. **Realtime size correction:** objects are already rebuilt with their saved size baked into geometry. The guard omits `scale` only from Realtime UPDATE callback payloads so a Large object is not scaled from `1.8×` to `3.24×` after another player moves it.
+1. **Persistence truth.** Every Supabase call used to be wrapped in
+   `try{ ... }catch(e){}` with the error discarded, while the caller told the
+   player "saved to the shared world" regardless. `src/persistence.js` now
+   returns `{ ok, error }` from every operation and the callers report the real
+   outcome — "Saving…" first, then either "save confirmed" or "local only,
+   shared-world save failed: <reason>".
+2. **Realtime size correction.** Objects are rebuilt with their saved size baked
+   into geometry and the group scale left at 1. The Realtime UPDATE handler
+   applies position and rotation but deliberately never reads `row.scale`, so a
+   Large object stays `1.8×` instead of jumping to `3.24×` when another player
+   moves it.
 
-These guards are compatibility fixes. They may later be folded directly into `main-v2e.js` after equivalent behavior is tested.
+Supabase is a bundled npm dependency rather than a runtime
+`https://esm.sh/@supabase/supabase-js@2` import, so page load no longer depends
+on an unpinned third-party CDN. Point a fork at your own project with
+`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — see `.env.example`. With no
+`.env` at all, the app falls back to the public demo project and just runs.
+
+## Dependencies
+
+`three`, `vite` and `@vitejs/plugin-basic-ssl` were all specified as `"latest"`
+with no committed lockfile, so any two installs could produce different builds.
+They are now pinned exactly and `package-lock.json` is committed.
+
+`.npmrc` sets `include=dev`. This machine has `NODE_ENV=production` and a
+user-level `omit=dev`, which made a plain `npm install` silently skip vite.
 
 ## Older versions are preserved
 
@@ -89,11 +115,16 @@ For new printer work:
 src/main-v2e.js
 ```
 
-For the root application startup and temporary compatibility guards:
+For the root application startup:
 
 ```text
 src/main-current.js
-src/runtime-guards.js
+```
+
+For world state, realtime sync and Supabase configuration:
+
+```text
+src/persistence.js
 ```
 
 For placed world objects:

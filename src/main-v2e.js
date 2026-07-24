@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  newId,
+  insertPlacement,
+  updatePlacement as updateRow,
+  deletePlacement as deleteRow,
+  loadPlacements,
+  subscribePlacements
+} from './persistence.js';
 import './style.css';
 
 const BUILD = 'v2i — modular world parts + real printer classes';
@@ -14,56 +21,79 @@ app.innerHTML = `
       <button id="toggleHud" class="secondary">Hide</button>
     </div>
     <div class="hud-body">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-        <a href="/" style="color:#00ff9d;text-decoration:none;font-weight:800">← Back to stable v1</a>
-        <span class="pill">world-parts foundry</span>
+      <div class="hud-scroll">
+        <div class="row" style="margin-bottom:10px">
+          <a href="/" class="backlink">← Back to stable v1</a>
+          <span class="pill">world-parts foundry</span>
+        </div>
+
+        <div class="section-title">Speak / Type Part</div>
+        <div class="row">
+          <input id="commandInput" value="make a wall panel" aria-label="Part command" />
+          <button id="runCommand">Print</button>
+          <button id="voiceButton" class="secondary" aria-label="Voice input" title="Speak a part">🎙</button>
+        </div>
+
+        <details class="group" open>
+          <summary>Part Library</summary>
+          <div class="row category-row" id="categoryButtons"></div>
+          <div class="row" id="recipeButtons"></div>
+          <div class="part-readout" id="partReadout">Structure parts use a 0.5-unit grid and compatible snap faces.</div>
+        </details>
+
+        <details class="group">
+          <summary>Printer Class &amp; Part Scale</summary>
+          <div class="row" id="sizeButtons"></div>
+          <div class="printer-envelope" id="printerEnvelope"></div>
+          <div class="sub-title">Part scale</div>
+          <div class="row" id="partScaleButtons"></div>
+        </details>
+
+        <details class="group" open>
+          <summary>Bed Flow &amp; Placement</summary>
+          <div class="row">
+            <button id="pickupPrint" disabled>Pick Up Print</button>
+            <button id="placeObject" disabled>Place</button>
+            <button class="danger" id="cancelObject">Cancel/Delete</button>
+          </div>
+          <div class="sub-title">Move / rotate after pickup</div>
+          <div class="row nudge-row">
+            <button class="secondary" id="moveLeft" title="Move left">←</button>
+            <button class="secondary" id="moveForward" title="Move forward">↑</button>
+            <button class="secondary" id="moveBack" title="Move back">↓</button>
+            <button class="secondary" id="moveRight" title="Move right">→</button>
+            <button class="secondary" id="rotateLeft" title="Rotate left">Rot −</button>
+            <button class="secondary" id="rotateRight" title="Rotate right">Rot +</button>
+            <button class="secondary" id="raiseUp" title="Raise">Up ⤒</button>
+            <button class="secondary" id="lowerDown" title="Lower">Down ⤓</button>
+            <button class="secondary" id="magnetToggle" title="Toggle connector snapping">🧲 On</button>
+          </div>
+        </details>
+
+        <details class="group">
+          <summary>View &amp; Walk</summary>
+          <div class="row" id="viewButtons"></div>
+        </details>
+
+        <details class="group">
+          <summary>Build info</summary>
+          <p class="note"><b>${BUILD}</b>. Print interoperable parts, snap them together, and build the house, vehicle, city, or spacecraft you want.</p>
+          <div class="row">
+            <span class="pill">catalog schema v1</span>
+            <span class="pill">connector snapping</span>
+            <span class="pill">continuous extrusion</span>
+            <span class="pill">collision-safe parking</span>
+          </div>
+        </details>
       </div>
-      <p class="note"><b>${BUILD}</b>. Print interoperable parts, snap them together, and build the house, vehicle, city, or spacecraft you want.</p>
-      <div class="section-title">Speak / Type Part</div>
-      <div class="row">
-        <input id="commandInput" value="make a wall panel" aria-label="Part command" />
-        <button id="runCommand">Print</button>
-        <button id="voiceButton" class="secondary">🎙</button>
+
+      <div class="hud-footer">
+        <div class="footer-line">
+          <span class="pill" id="statePill">ready</span>
+          <span id="selected">Target: none</span>
+        </div>
+        <div id="status">Ready. Start with Wall, Floor, Roof Slope, Stairs, Road + Sidewalk, Wheel, Battery, Tank, Thruster, or Wing.</div>
       </div>
-      <div class="section-title">Printer Class</div>
-      <div class="row" id="sizeButtons"></div>
-      <div class="printer-envelope" id="printerEnvelope"></div>
-      <div class="section-title">Part Scale</div>
-      <div class="row" id="partScaleButtons"></div>
-      <div class="section-title">Part Library</div>
-      <div class="row category-row" id="categoryButtons"></div>
-      <div class="row" id="recipeButtons"></div>
-      <div class="part-readout" id="partReadout">Structure parts use a 0.5-unit grid and compatible snap faces.</div>
-      <div class="section-title">Printer Bed Flow</div>
-      <div class="row">
-        <button id="pickupPrint" disabled>Pick Up Print</button>
-        <button id="placeObject" disabled>Place</button>
-        <button class="danger" id="cancelObject">Cancel/Delete</button>
-      </div>
-      <div class="section-title">Move / Rotate After Pickup</div>
-      <div class="row">
-        <button class="secondary" id="moveLeft">←</button>
-        <button class="secondary" id="moveForward">↑</button>
-        <button class="secondary" id="moveBack">↓</button>
-        <button class="secondary" id="moveRight">→</button>
-        <button class="secondary" id="rotateLeft">Rot −</button>
-        <button class="secondary" id="rotateRight">Rot +</button>
-        <button class="secondary" id="raiseUp">Up ⤒</button>
-        <button class="secondary" id="lowerDown">Down ⤓</button>
-        <button class="secondary" id="magnetToggle">🧲 On</button>
-      </div>
-      <div class="section-title">View &amp; Walk</div>
-      <div class="row" id="viewButtons"></div>
-      <div class="section-title">State</div>
-      <div class="row">
-        <span class="pill" id="statePill">ready</span>
-        <span class="pill">catalog schema v1</span>
-        <span class="pill">connector snapping</span>
-        <span class="pill">continuous extrusion</span>
-        <span class="pill">collision-safe parking</span>
-      </div>
-      <div id="status">Ready. Start with Wall, Floor, Roof Slope, Stairs, Road + Sidewalk, Wheel, Battery, Tank, Thruster, or Wing.</div>
-      <div id="selected">Target: none</div>
     </div>
   </section>
   <aside id="help">v2i: parts are recipes; finished houses, cars, aircraft, and cities are player-built blueprints.</aside>
@@ -99,7 +129,16 @@ toggleHud.addEventListener('click', () => {
   hud.classList.toggle('collapsed');
   hud.classList.remove('mobile-start');
   toggleHud.textContent = hud.classList.contains('collapsed') ? 'Open' : 'Hide';
+  // Collapsing the panel frees the left quarter of the canvas, so the camera's
+  // off-centre framing should relax back to the middle (and vice versa).
+  reframeForPanel();
 });
+
+// Defined up here because the HUD toggle above needs it, but focusPrinter and
+// viewMode are declared further down with the scene code.
+function reframeForPanel(){
+  if (typeof viewMode !== 'undefined' && viewMode === 'orbit') focusPrinter(false);
+}
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -198,18 +237,20 @@ const mat = {
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d1011);
 scene.fog = new THREE.Fog(0x0d1011, 45, 170);
-const camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, .1, 1000);
-camera.position.set(14,9.2,15.6);
+// 62° was wide enough to barrel-distort the printer frame and crop the gantry
+// on load. 50° with the camera pulled back frames the whole machine.
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, .1, 1000);
+camera.position.set(16.5,11,19.5);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.18;
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0,2.1,-1.2);
+controls.target.set(0,2.6,-1.2);
 controls.enableDamping = true;
 controls.dampingFactor = .08;
 controls.minDistance = 5;
@@ -217,12 +258,16 @@ controls.maxDistance = 120;
 controls.maxPolarAngle = Math.PI*.49;
 controls.update();
 
-scene.add(new THREE.AmbientLight(0x8e9691,.58));
-const key = new THREE.DirectionalLight(0xffe3c4,1.48);
+// Ambient was carrying too much of the exposure (0.58 flat + 0.38 hemisphere),
+// which washed out the shading and left everything reading as one grey mass.
+// Lower fill, stronger key and a real rim give the hardware some form.
+scene.add(new THREE.AmbientLight(0x8e9691,.46));
+const key = new THREE.DirectionalLight(0xffe3c4,1.9);
 key.position.set(17,25,12); key.castShadow=true; key.shadow.mapSize.set(2048,2048);
-key.shadow.camera.left=-50; key.shadow.camera.right=50; key.shadow.camera.top=50; key.shadow.camera.bottom=-50; scene.add(key);
-const rim = new THREE.DirectionalLight(0x9fc7d8,.32); rim.position.set(-12,9,-8); scene.add(rim);
-scene.add(new THREE.HemisphereLight(0xb8cad8,0x35281d,.38));
+key.shadow.camera.left=-50; key.shadow.camera.right=50; key.shadow.camera.top=50; key.shadow.camera.bottom=-50;
+key.shadow.bias=-0.0008; key.shadow.normalBias=0.02; scene.add(key);
+const rim = new THREE.DirectionalLight(0x9fc7d8,.62); rim.position.set(-14,10,-9); scene.add(rim);
+scene.add(new THREE.HemisphereLight(0xb8cad8,0x2a2018,.45));
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(150,150), mat.ground);
 ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
 const grid = new THREE.GridHelper(150,150,0x00ff9d,0x33453f);
@@ -449,12 +494,43 @@ function createPrinter(profile){
 let printer=createPrinter(PRINTER_PROFILES[printerClass]); printer.position.set(0,0,-5.5); scene.add(printer);
 function bedWorld(local=new THREE.Vector3(0,0,0)){ return printer.localToWorld(new THREE.Vector3(local.x,.56+local.y,.28+local.z)); }
 function nozzleWorld(){ return printer.userData.carriage.localToWorld(printer.userData.nozzleTipLocal.clone()); }
+/**
+ * Frame the printer.
+ *
+ * Two things were wrong here. The distance multiplier was tight enough that the
+ * gantry was cropped off the top of the frame on load, and the framing assumed
+ * the whole canvas was visible when in practice the control panel covers the
+ * left quarter of it — so the machine sat half-hidden behind the HUD.
+ *
+ * The camera is now pulled back far enough to clear the full envelope height,
+ * then panned along its own right vector so the printer is centred in the area
+ * the player can actually see.
+ */
+const framingShift = new THREE.Vector3();
 function focusPrinter(close=false){
   const e=PRINTER_PROFILES[printerClass].envelope, mobile=window.innerWidth<=720;
-  const distance=Math.max(e.x,e.z)*(close?1.02:1.22)+(mobile?4.8:3.6);
-  camera.fov=mobile?58:52; camera.updateProjectionMatrix();
-  camera.position.set(distance*(mobile ? .72 : .62),Math.max(4.6,e.y*.66+1.8),printer.position.z+distance*(mobile ? .8 : .72));
-  controls.target.set(0,.56+e.y*.38,printer.position.z+.28); controls.update();
+  // Fit the diagonal footprint *and* the envelope height, not just the footprint.
+  const reach=Math.max(e.x,e.z,e.y*1.15);
+  const distance=reach*(close?1.35:1.92)+(mobile?4.8:3.6);
+  camera.fov=mobile?60:50; camera.updateProjectionMatrix();
+  camera.position.set(distance*(mobile ? .70 : .60),Math.max(5.2,e.y*.62+2.6),printer.position.z+distance*(mobile ? .78 : .70));
+  controls.target.set(0,.56+e.y*.42,printer.position.z+.28);
+
+  // Pan out from behind the HUD. The panel is hidden when collapsed, and on
+  // mobile it starts collapsed and overlays the top rather than the side.
+  const panelPx = (mobile || hud?.classList.contains('collapsed'))
+    ? 0
+    : Math.min(372, window.innerWidth * 0.28);
+  if (panelPx > 8) {
+    const depth = camera.position.distanceTo(controls.target);
+    const visibleWidth = 2 * depth * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect;
+    const shift = (panelPx / window.innerWidth) * visibleWidth * 0.5;
+    camera.getWorldDirection(framingShift);
+    framingShift.cross(camera.up).normalize().multiplyScalar(-shift); // toward screen-left
+    camera.position.add(framingShift);
+    controls.target.add(framingShift);
+  }
+  controls.update();
 }
 function replacePrinter(nextClass,{focus=true}={}){
   if(!PRINTER_PROFILES[nextClass]||nextClass===printerClass) return;
@@ -1184,8 +1260,8 @@ async function startPrint(recipe){
   setStatus(`${recipe.label} finished on the ${PRINTER_PROFILES[printerClass].label} bed. The toolhead is parked clear; pick it up to place and snap it.`);
 }
 async function pickupPrint(){ if(phase!=='printed-on-bed'||!printedOnBed){setStatus('Nothing finished on the printer bed yet.');return;} document.body.classList.remove('hero-mode'); const obj=printedOnBed; printedOnBed=null; if(pathGroup){scene.remove(pathGroup);pathGroup=null;} setPhase('pickup-moving'); obj.userData.state='pickup-moving'; setStatus(`Picking up ${obj.userData.label}.`); await animateTransform(obj,handWorld(),.42,850); await sleep(140); obj.userData.state='carried-preview'; obj.scale.setScalar(1); const [x,z]=slots[slotIndex++%slots.length]; obj.position.set(x,0,z); setGhost(obj,true); carriedPreview=obj; setPhase('carried-preview'); setTarget(`preview ${obj.userData.label}`); setStatus(`${obj.userData.label} picked up. Move/rotate it or tap ground, then Place.`); }
-function placePreview(){ if(!carriedPreview){setStatus('No carried preview. Print something, then Pick Up Print first.');return;} const obj=carriedPreview; carriedPreview=null; setGhost(obj,false); restoreFinal(obj); obj.userData.id=++idCounter; obj.userData.state='placed'; placed.push(obj); magnetSnap(obj); setPhase('ready'); selectPlaced(obj); savePlacement(obj); setStatus(`${obj.userData.label} placed and saved to the shared world (persists on reload).`); }
-function cancelOrDelete(){ if(phase==='printing'){setStatus('Print is mid-fabrication. Let it finish, then cancel/pick up.');return;} if(carriedPreview){scene.remove(carriedPreview);carriedPreview=null;setPhase('ready');setTarget('none');setStatus('Carried preview cancelled.');return;} if(printedOnBed){scene.remove(printedOnBed);printedOnBed=null;document.body.classList.remove('hero-mode');if(pathGroup){scene.remove(pathGroup);pathGroup=null;}setPhase('ready');setTarget('none');setStatus('Finished print removed from the bed.');return;} if(selected){const doomed=selected;clearSelection();scene.remove(doomed);const i=placed.indexOf(doomed);if(i>=0)placed.splice(i,1);deletePlacement(doomed);setStatus('Selected placed object deleted (removed from the shared world too).');return;} setStatus('Nothing to cancel or delete.'); }
+function placePreview(){ if(!carriedPreview){setStatus('No carried preview. Print something, then Pick Up Print first.');return;} const obj=carriedPreview; carriedPreview=null; setGhost(obj,false); restoreFinal(obj); obj.userData.id=++idCounter; obj.userData.state='placed'; placed.push(obj); magnetSnap(obj); setPhase('ready'); selectPlaced(obj); setStatus(`${obj.userData.label} placed. Saving to the shared world…`); savePlacement(obj); }
+function cancelOrDelete(){ if(phase==='printing'){setStatus('Print is mid-fabrication. Let it finish, then cancel/pick up.');return;} if(carriedPreview){scene.remove(carriedPreview);carriedPreview=null;setPhase('ready');setTarget('none');setStatus('Carried preview cancelled.');return;} if(printedOnBed){scene.remove(printedOnBed);printedOnBed=null;document.body.classList.remove('hero-mode');if(pathGroup){scene.remove(pathGroup);pathGroup=null;}setPhase('ready');setTarget('none');setStatus('Finished print removed from the bed.');return;} if(selected){const doomed=selected;clearSelection();scene.remove(doomed);const i=placed.indexOf(doomed);if(i>=0)placed.splice(i,1);setStatus('Object removed. Confirming shared-world deletion…');deletePlacement(doomed);return;} setStatus('Nothing to cancel or delete.'); }
 
 // --- World-state persistence + real-time multiplayer (Supabase) -------------
 // Every placed object is a row (the world's source of truth, not the git repo).
@@ -1193,8 +1269,6 @@ function cancelOrDelete(){ if(phase==='printing'){setStatus('Print is mid-fabric
 // every builder's changes to all connected players live. Any AI (Claude/ChatGPT/
 // Zeus) can SELECT to map the world or DELETE to clean it up.
 const WORLD='printer-lab';
-const supabase=createClient('https://ygjpnvrwhkrowkrskftk.supabase.co','sb_publishable_Y-duV64ayMMEvVwMs5PWuw_6kvzbOrN');
-const newId=()=> (crypto&&crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random());
 function findPlaced(dbId){ return placed.find(o=>o.userData.dbId===dbId); }
 function spawnPlacementRow(row){
   const recipe=recipes.find(r=>r.id===row.type); if(!recipe) return null;
@@ -1203,34 +1277,43 @@ function spawnPlacementRow(row){
   obj.position.set(row.x,row.y,row.z); obj.rotation.y=row.rot_y||0;
   placed.push(obj); scene.add(obj); return obj;
 }
+// Each of these reports what actually happened. Nothing here claims a write
+// reached the shared world until the request has come back successful.
 async function savePlacement(obj){
   obj.userData.dbId=newId(); // client id so our own realtime echo is recognised, not duplicated
-  try{ await supabase.from('placements').insert({ id:obj.userData.dbId, world:WORLD, type:obj.userData.recipeId, label:obj.userData.label, x:obj.position.x, y:obj.position.y, z:obj.position.z, rot_y:obj.rotation.y, scale:obj.userData.sizeScale||1 }); }catch(e){}
+  const label=obj.userData.label||'Object';
+  const { ok, error } = await insertPlacement({ id:obj.userData.dbId, world:WORLD, type:obj.userData.recipeId, label:obj.userData.label, x:obj.position.x, y:obj.position.y, z:obj.position.z, rot_y:obj.rotation.y, scale:obj.userData.sizeScale||1 });
+  if(ok){ setStatus(`${label} placed — shared-world save confirmed.`); }
+  else{ obj.userData.saveFailed=true; console.error('[World Printer] placement insert failed:',error); setStatus(`${label} placed locally only — shared-world save failed${error?`: ${error}`:'.'}`); }
 }
 async function updatePlacement(obj){
   if(!obj.userData.dbId) return;
-  try{ await supabase.from('placements').update({ x:obj.position.x, y:obj.position.y, z:obj.position.z, rot_y:obj.rotation.y, scale:obj.userData.sizeScale||1 }).eq('id',obj.userData.dbId); }catch(e){}
+  const { ok, error } = await updateRow(obj.userData.dbId,{ x:obj.position.x, y:obj.position.y, z:obj.position.z, rot_y:obj.rotation.y, scale:obj.userData.sizeScale||1 });
+  if(!ok){ console.error('[World Printer] placement update failed:',error); setStatus(`Moved locally — shared-world update failed${error?`: ${error}`:'.'}`); }
 }
 async function deletePlacement(obj){
   if(!obj.userData.dbId) return;
-  try{ await supabase.from('placements').delete().eq('id',obj.userData.dbId); }catch(e){}
+  const { ok, error } = await deleteRow(obj.userData.dbId);
+  if(ok){ setStatus('Object deleted — shared-world removal confirmed.'); }
+  else{ console.error('[World Printer] placement delete failed:',error); setStatus(`Removed locally only — shared-world deletion failed${error?`: ${error}`:'.'}`); }
 }
-async function loadPlacements(){
-  try{
-    const { data, error } = await supabase.from('placements').select('*').eq('world',WORLD).order('created_at');
-    if(error||!data||!data.length) return;
-    for(const row of data){ if(!findPlaced(row.id)) spawnPlacementRow(row); }
-    setStatus(`Loaded ${data.length} saved world object(s) from the shared world state.`);
-  }catch(e){}
+async function loadWorld(){
+  const { ok, rows, error } = await loadPlacements(WORLD);
+  if(!ok){ console.error('[World Printer] world load failed:',error); setStatus(`Could not load the shared world${error?`: ${error}`:'.'} Building locally.`); return; }
+  if(!rows.length){ setStatus('Shared world is empty. Print something to start it.'); return; }
+  for(const row of rows){ if(!findPlaced(row.id)) spawnPlacementRow(row); }
+  setStatus(`Loaded ${rows.length} saved world object(s) from the shared world state.`);
 }
 function subscribeWorld(){
-  try{
-    supabase.channel('placements-'+WORLD)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'placements',filter:`world=eq.${WORLD}`},({new:row})=>{ if(row && !findPlaced(row.id)){ spawnPlacementRow(row); setStatus(`Another builder placed a ${row.label||row.type}.`); } })
-      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'placements',filter:`world=eq.${WORLD}`},({new:row})=>{ const o=row&&findPlaced(row.id); if(o){ o.position.set(row.x,row.y,row.z); o.rotation.y=row.rot_y||0; /* size is baked into geometry (group scale stays 1); do NOT re-apply row.scale or Large objects double-scale */ if(selected===o) updateSelectionBox(); } })
-      .on('postgres_changes',{event:'DELETE',schema:'public',table:'placements'},({old})=>{ const o=old&&findPlaced(old.id); if(o){ if(selected===o) clearSelection(); scene.remove(o); const i=placed.indexOf(o); if(i>=0)placed.splice(i,1); } })
-      .subscribe();
-  }catch(e){}
+  subscribePlacements(WORLD,{
+    onInsert:(row)=>{ if(!findPlaced(row.id)){ spawnPlacementRow(row); setStatus(`Another builder placed a ${row.label||row.type}.`); } },
+    // Size is baked into the geometry and the group scale stays 1, so position
+    // and rotation are applied but row.scale is deliberately ignored — reading
+    // it here is what made Large objects jump from 1.8x to 3.24x on any move.
+    onUpdate:(row)=>{ const o=findPlaced(row.id); if(o){ o.position.set(row.x,row.y,row.z); o.rotation.y=row.rot_y||0; if(selected===o) updateSelectionBox(); } },
+    onDelete:(old)=>{ const o=findPlaced(old.id); if(o){ if(selected===o) clearSelection(); scene.remove(o); const i=placed.indexOf(o); if(i>=0)placed.splice(i,1); } },
+    onError:(detail)=>{ console.warn('[World Printer] realtime:',detail); setStatus(`Live multiplayer sync unavailable (${detail}). Your own builds still save.`); }
+  });
 }
 
 const sizeButtonsEl=$('#sizeButtons');
@@ -1277,10 +1360,16 @@ if(!SpeechRecognition){ voiceButton.disabled=true; voiceButton.title='Speech rec
 
 // Rebuild any previously-placed world objects, then subscribe so every builder's
 // placements/moves/deletes appear live for all connected players (multiplayer).
-loadPlacements();
+loadWorld();
 subscribeWorld();
 
-function resize(){ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2)); renderer.setSize(window.innerWidth,window.innerHeight); }
+function resize(){
+  camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2)); renderer.setSize(window.innerWidth,window.innerHeight);
+  // Re-frame: the HUD offset is a fraction of viewport width, so it is wrong
+  // the moment the window changes size.
+  if(viewMode==='orbit') focusPrinter(false);
+}
 window.addEventListener('resize',resize);
 // --- Camera modes + character controls --------------------------------------
 // Walk the player with the on-screen joystick (or WASD/arrows); switch between

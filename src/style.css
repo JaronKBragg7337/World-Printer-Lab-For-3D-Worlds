@@ -34,9 +34,13 @@ canvas {
   top: 12px;
   left: 12px;
   z-index: 20;
-  width: min(430px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100vw - 24px));
+  /* Cap the panel so it can never reach the bottom-left corner, which is where
+     the walk joystick lives. The two used to overlap on every screen. */
+  max-height: min(calc(100vh - 24px), 780px);
+  overflow: hidden;
   padding: 12px;
   border: 1px solid var(--panel-border);
   border-radius: 16px;
@@ -45,19 +49,60 @@ canvas {
   box-shadow: 0 18px 46px rgba(0,0,0,0.42);
 }
 
-#hud.collapsed { width: auto; overflow: visible; }
+#hud.collapsed { width: auto; max-height: none; overflow: visible; }
 #hud.collapsed .hud-body { display: none; }
+
+/* Header stays put; only the middle scrolls. */
+.hud-body { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.hud-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+.hud-scroll::-webkit-scrollbar { width: 8px; }
+.hud-scroll::-webkit-scrollbar-thumb { border-radius: 8px; background: rgba(0,255,157,.22); }
+.hud-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Status is the app's only feedback channel — never let it scroll away. */
+.hud-footer { flex-shrink: 0; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.10); }
+.footer-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .topline {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 h1 { margin: 0; font-size: 17px; line-height: 1.15; }
 .note { margin: 7px 0 10px; color: var(--muted); font-size: 12px; line-height: 1.35; }
 .section-title { margin: 12px 0 6px; color: #e9fff7; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .09em; }
+.sub-title { margin: 10px 0 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.backlink { color: var(--accent); text-decoration: none; font-weight: 800; }
+.backlink:hover { text-decoration: underline; }
+
+/* Collapsible groups — the panel used to be one unbroken scroll of 8 sections. */
+.group { margin-top: 10px; border: 1px solid rgba(255,255,255,.09); border-radius: 11px; background: rgba(255,255,255,.03); }
+.group > summary {
+  padding: 9px 11px;
+  color: #e9fff7;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 10px;
+  user-select: none;
+}
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary::after { content: '＋'; color: var(--accent); font-size: 13px; font-weight: 700; }
+.group[open] > summary::after { content: '−'; }
+.group > summary:hover { background: rgba(0,255,157,.07); }
+.group[open] > summary { border-bottom: 1px solid rgba(255,255,255,.08); border-radius: 10px 10px 0 0; }
+.group > *:not(summary) { margin-left: 11px; margin-right: 11px; }
+.group > *:last-child:not(summary) { margin-bottom: 11px; }
+.group > .row:first-of-type { margin-top: 10px; }
 
 .row { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
 button,
@@ -118,7 +163,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 }
 
 #status {
-  margin-top: 10px;
+  margin-top: 8px;
   min-height: 32px;
   padding: 8px 9px;
   background: rgba(0,255,157,.09);
@@ -126,9 +171,12 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   border-radius: 10px;
   color: #dffff5;
   font-size: 12px;
+  line-height: 1.4;
 }
 
-#selected { margin-top: 8px; color: #ffd479; font-size: 12px; }
+#selected { color: #ffd479; font-size: 12px; }
+
+.nudge-row button { min-width: 42px; }
 
 #help {
   position: fixed;
@@ -163,9 +211,30 @@ kbd {
   font-size: 11px;
 }
 
+/* The walk joystick is a touch control. On a mouse-and-keyboard machine it is
+   dead UI sitting in the bottom-left corner, directly underneath the control
+   panel — WASD already handles walking there. Only show it for touch input. */
+@media (hover: hover) and (pointer: fine) {
+  #joystick { display: none !important; }
+}
+
 @media (max-width: 720px) {
-  #hud { top: 8px; left: 8px; width: min(350px, calc(100vw - 16px)); max-height: 54vh; }
-  #hud.mobile-start { width: auto; overflow: visible; }
+  #hud { top: 8px; left: 8px; width: min(350px, calc(100vw - 16px)); max-height: 56vh; }
+  #hud.mobile-start { width: auto; max-height: none; overflow: visible; }
   #hud.mobile-start .hud-body { display: none; }
+  /* Keep the panel clear of the joystick and the help strip at the bottom. */
   #help { left: 8px; right: 8px; bottom: 8px; max-width: unset; font-size: 11px; }
+  #joystick { bottom: 76px !important; }
+  .group > summary { padding: 11px; }
+  button { padding: 9px 11px; }
+}
+
+/* Very short windows: give the scroll region whatever is left rather than
+   letting the panel run off the bottom of the screen. */
+@media (max-height: 620px) {
+  #hud { max-height: calc(100vh - 16px); top: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }

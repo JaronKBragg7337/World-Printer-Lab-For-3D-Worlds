@@ -1,0 +1,27 @@
+# Normalize line endings.
+#
+# This repo is edited on Windows inside a OneDrive-synced folder, which was
+# rewriting every tracked file to CRLF. Git stored LF, so `git status` showed
+# all 25 tracked files as modified with ~5,900 phantom line changes and real
+# diffs were impossible to read. Force LF in the index and the working tree.
+
+* text=auto eol=lf
+
+# Binary / generated — never touch these.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.glb   binary
+*.gltf  binary
+*.fbx   binary
+*.blend binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.zip   binary
+
+# Keep the lockfile out of diff noise and out of language stats.
+package-lock.json linguist-generated=true -diff
